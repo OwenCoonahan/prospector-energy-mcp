@@ -6,7 +6,7 @@
 
 Go to https://github.com/new and create:
 - **Name:** `prospector-energy-mcp`
-- **Description:** MCP server for US energy infrastructure data — 47K interconnection projects, 4.8M DG installations, tax credits, developer intelligence
+- **Description:** MCP server for US energy infrastructure data — 47K interconnection projects, 5.4M DG installations, tax credits, developer intelligence
 - **Visibility:** Public
 - **Don't** initialize with README (we already have one)
 
@@ -87,7 +87,7 @@ Go to https://mcp.so and submit:
 | Field | Value |
 |-------|-------|
 | **Name** | prospector-energy |
-| **Description** | Access US energy infrastructure data — 47,000 interconnection queue projects across 9 ISOs, 4.8M distributed generation installations, ITC/PTC tax credit calculations with all IRA bonuses, 6,593 developer profiles with track records, and ITC deal sourcing for investors. |
+| **Description** | Access US energy infrastructure data — 47,000 interconnection queue projects across 9 ISOs, 5.4M distributed generation installations, ITC/PTC tax credit calculations with all IRA bonuses, 6,593 developer profiles with track records, and ITC deal sourcing for investors. |
 | **Install** | `pip install prospector-energy-mcp` (or `pip install git+https://github.com/OwenCoonahan/prospector-energy-mcp.git`) |
 | **GitHub** | https://github.com/OwenCoonahan/prospector-energy-mcp |
 | **Category** | Data / Finance / Energy |

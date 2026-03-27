@@ -1,6 +1,6 @@
 # Prospector Energy MCP Server
 
-MCP (Model Context Protocol) server that gives AI agents access to the Prospector Labs Energy Data API — 47,000+ interconnection queue projects, 4.8M distributed generation installations, 6,593 developer profiles, tax credit calculations, and ITC deal sourcing.
+MCP (Model Context Protocol) server that gives AI agents access to the Prospector Labs Energy Data API — 47,000+ interconnection queue projects, 5.4M distributed generation installations, 6,593 developer profiles, tax credit calculations, and ITC deal sourcing.
 
 ## Tools Available (31 tools)
 
@@ -59,7 +59,7 @@ MCP (Model Context Protocol) server that gives AI agents access to the Prospecto
 ### Distributed Generation
 | Tool | Description |
 |------|-------------|
-| `search_dg_projects` | Search 4.8M distributed generation installations |
+| `search_dg_projects` | Search 5.4M distributed generation installations |
 | `get_dg_stats` | DG aggregate statistics |
 
 ## Setup

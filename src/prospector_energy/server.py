@@ -24,7 +24,7 @@ mcp = FastMCP(
     "prospector-energy",
     instructions=(
         "Energy infrastructure data for the US power grid. "
-        "47,000+ interconnection queue projects, 4.8M distributed generation installations, "
+        "47,000+ interconnection queue projects, 5.4M distributed generation installations, "
         "6,593 developer profiles, tax credit calculations, ITC deal sourcing, "
         "market data, and grid infrastructure. Use these tools to answer questions "
         "about US energy projects, renewable energy development, tax credits, "
@@ -339,7 +339,7 @@ async def search_dg_projects(
     page: int = 1,
     per_page: int = 20,
 ) -> str:
-    """Search distributed generation installations (4.8M+ projects).
+    """Search distributed generation installations (5.4M+ projects).
 
     Covers rooftop solar, community solar, and other sub-1MW installations
     from 16 state programs across 27+ states.
