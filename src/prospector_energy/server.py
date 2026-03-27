@@ -1,6 +1,6 @@
 """Prospector Energy MCP Server.
 
-Exposes the Prospector Labs Energy Data API (61 endpoints) as MCP tools
+Exposes the Prospector Labs Energy Data API as 31 MCP tools
 that Claude, GPT, and other AI agents can discover and call natively.
 
 Usage:
@@ -316,11 +316,13 @@ async def get_investable_summary() -> str:
 
 
 @mcp.tool()
-async def get_market_stats() -> str:
+async def get_queue_stats() -> str:
     """Get aggregate statistics for the interconnection queue database.
 
     Returns: total projects, capacity by region/type/status, technology mix,
     historical trends, and data freshness.
+
+    This is the queue/project-level summary — not market pricing data.
     """
     client = _get_client()
     data = await client.get("/stats")
@@ -512,6 +514,204 @@ async def get_dg_stats() -> str:
     """
     client = _get_client()
     data = await client.get("/dg/stats")
+    return _fmt(data)
+
+
+@mcp.tool()
+async def get_itc_summary() -> str:
+    """Get aggregate ITC deal pipeline statistics.
+
+    Returns: total ITC-eligible projects, total estimated ITC value,
+    breakdown by state, region, technology, credit rate tier, and
+    bonus eligibility (energy community, low-income, domestic content).
+
+    Use this to answer questions like:
+    - "How much ITC deal flow is available nationally?"
+    - "Which states have the most ITC value?"
+    - "What percentage of deals qualify for bonus adders?"
+    """
+    client = _get_client()
+    data = await client.get("/deals/itc/summary")
+    return _fmt(data)
+
+
+@mcp.tool()
+async def get_deal_sheet(queue_id: str) -> str:
+    """Get a formatted 1-page deal sheet for an energy project.
+
+    Returns self-contained HTML with: project details, ITC credit breakdown
+    with bonus stacking, developer track record, investability score
+    component breakdown, and risk flags. Designed for investor presentations.
+
+    The HTML is print-optimized — open in browser and File > Print > Save as PDF.
+
+    Args:
+        queue_id: The project's queue ID
+    """
+    client = _get_client()
+    data = await client.get(f"/deals/{queue_id}/sheet")
+    return _fmt(data)
+
+
+@mcp.tool()
+async def get_project_score(queue_id: str) -> str:
+    """Get the investability score breakdown for a specific project.
+
+    Returns per-component scores: ITC eligibility, size fit, construction stage,
+    developer capital needs, bonus stacking, and data completeness.
+
+    Args:
+        queue_id: The project's queue ID
+    """
+    client = _get_client()
+    data = await client.get(f"/score/{queue_id}")
+    return _fmt(data)
+
+
+@mcp.tool()
+async def get_lmp_monthly(
+    iso: str | None = None,
+    zone: str | None = None,
+    months: int = 12,
+) -> str:
+    """Get monthly average locational marginal prices (LMP).
+
+    Monthly aggregated LMP data for trend analysis across ISOs.
+
+    Args:
+        iso: ISO/RTO name (CAISO, ERCOT, ISONE, MISO, NYISO, PJM)
+        zone: Pricing zone name
+        months: Number of months of history (default 12)
+    """
+    client = _get_client()
+    data = await client.get("/lmp/monthly", {"iso": iso, "zone": zone, "months": months})
+    return _fmt(data)
+
+
+@mcp.tool()
+async def get_lmp_zones(iso: str | None = None) -> str:
+    """List available LMP pricing zones.
+
+    Use this to discover valid zone names before querying LMP data.
+
+    Args:
+        iso: ISO/RTO name to filter zones (optional)
+    """
+    client = _get_client()
+    data = await client.get("/lmp/zones", {"iso": iso})
+    return _fmt(data)
+
+
+@mcp.tool()
+async def get_fuel_prices(
+    fuel: str | None = None,
+    state: str | None = None,
+) -> str:
+    """Get fuel price data from EIA.
+
+    Natural gas, coal, and other fuel prices by state and fuel type.
+
+    Args:
+        fuel: Fuel type (Natural Gas, Coal, etc.)
+        state: US state abbreviation
+    """
+    client = _get_client()
+    data = await client.get("/fuel-prices", {"fuel": fuel, "state": state})
+    return _fmt(data)
+
+
+@mcp.tool()
+async def get_rto_generation(
+    region: str | None = None,
+) -> str:
+    """Get RTO-level electricity generation data from EIA.
+
+    Generation by fuel type and balancing authority region.
+
+    Args:
+        region: RTO/BA region name
+    """
+    client = _get_client()
+    data = await client.get("/rto-generation", {"region": region})
+    return _fmt(data)
+
+
+@mcp.tool()
+async def get_grid_transmission(
+    state: str | None = None,
+    owner: str | None = None,
+    min_voltage: float | None = None,
+    page: int = 1,
+    per_page: int = 20,
+) -> str:
+    """Search US transmission lines (95,000+ lines).
+
+    Source: HIFLD (Homeland Infrastructure Foundation-Level Data).
+
+    Args:
+        state: US state abbreviation
+        owner: Line owner name
+        min_voltage: Minimum voltage in kV
+        page: Page number
+        per_page: Results per page
+    """
+    client = _get_client()
+    data = await client.get("/grid/transmission", {
+        "state": state, "owner": owner, "min_voltage": min_voltage,
+        "page": page, "per_page": per_page,
+    })
+    return _fmt(data)
+
+
+@mcp.tool()
+async def get_grid_substations(
+    state: str | None = None,
+    owner: str | None = None,
+    page: int = 1,
+    per_page: int = 20,
+) -> str:
+    """Search US electrical substations (64,000+ substations).
+
+    Source: HIFLD (Homeland Infrastructure Foundation-Level Data).
+
+    Args:
+        state: US state abbreviation
+        owner: Substation owner name
+        page: Page number
+        per_page: Results per page
+    """
+    client = _get_client()
+    data = await client.get("/grid/substations", {
+        "state": state, "owner": owner,
+        "page": page, "per_page": per_page,
+    })
+    return _fmt(data)
+
+
+@mcp.tool()
+async def export_projects(
+    state: str | None = None,
+    region: str | None = None,
+    type: str | None = None,
+    status: str | None = None,
+    format: str = "csv",
+) -> str:
+    """Export interconnection queue projects as CSV.
+
+    Downloads up to 50,000 projects matching the filters. Returns CSV text.
+
+    Args:
+        state: US state abbreviation
+        region: ISO/RTO region
+        type: Technology type
+        status: Project status
+        format: Output format (csv)
+    """
+    client = _get_client()
+    data = await client.get("/export/projects", {
+        "state": state, "region": region, "type": type,
+        "status": status, "format": format,
+    })
     return _fmt(data)
 
 
