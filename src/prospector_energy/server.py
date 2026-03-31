@@ -1,6 +1,6 @@
 """Prospector Energy MCP Server.
 
-Exposes the Prospector Labs Energy Data API as 31 MCP tools
+Exposes the Prospector Labs Energy Data API as 34 MCP tools
 that Claude, GPT, and other AI agents can discover and call natively.
 
 Usage:
@@ -24,11 +24,13 @@ mcp = FastMCP(
     "prospector-energy",
     instructions=(
         "Energy infrastructure data for the US power grid. "
-        "47,000+ interconnection queue projects, 5.4M distributed generation installations, "
+        "47,000+ interconnection queue projects with milestone tracking "
+        "(construction stage, study phase, IA status, key dates), "
+        "5.4M distributed generation installations (55K+ scored for investability), "
         "6,593 developer profiles, tax credit calculations, ITC deal sourcing, "
         "market data, and grid infrastructure. Use these tools to answer questions "
         "about US energy projects, renewable energy development, tax credits, "
-        "and energy market data."
+        "project milestones, and energy market data."
     ),
 )
 
@@ -63,6 +65,10 @@ async def search_projects(
     developer: str | None = None,
     min_mw: float | None = None,
     max_mw: float | None = None,
+    construction_stage: str | None = None,
+    study_phase: str | None = None,
+    ia_status: str | None = None,
+    min_confidence: float | None = None,
     page: int = 1,
     per_page: int = 20,
 ) -> str:
@@ -73,12 +79,15 @@ async def search_projects(
 
     Projects include solar, wind, battery storage, natural gas, nuclear, and hybrid.
     Each project has enrichment data: tax credit eligibility, developer track record,
-    energy community status, investability score, and interconnection status.
+    energy community status, investability score, construction stage, milestone dates
+    (IA date, study phase, backfeed date), and interconnection status.
 
     Use this to answer questions like:
     - "How many solar projects are in the ERCOT queue?"
     - "What projects is NextEra developing in PJM?"
     - "Find battery storage projects over 100 MW in California"
+    - "Show me projects with IA Executed status in NYISO"
+    - "Find late-stage projects with high confidence"
 
     Args:
         state: US state abbreviation (e.g. "TX", "CA", "NJ")
@@ -88,6 +97,10 @@ async def search_projects(
         developer: Developer name (partial match)
         min_mw: Minimum capacity in MW
         max_mw: Maximum capacity in MW
+        construction_stage: Filter by stage (early, mid, late, construction, operational, withdrawn)
+        study_phase: Filter by study phase (Feasibility, SIS, Facilities, GIA, IA Executed, etc.)
+        ia_status: Filter by interconnection agreement status (IA Executed, Facility Study, etc.)
+        min_confidence: Minimum construction stage confidence (0.0-1.0)
         page: Page number (default 1)
         per_page: Results per page (default 20, max 200)
     """
@@ -95,6 +108,8 @@ async def search_projects(
     data = await client.get("/projects", {
         "state": state, "region": region, "type": type, "status": status,
         "developer": developer, "min_mw": min_mw, "max_mw": max_mw,
+        "construction_stage": construction_stage, "study_phase": study_phase,
+        "ia_status": ia_status, "min_confidence": min_confidence,
         "page": page, "per_page": per_page,
     })
     return _fmt(data)
@@ -106,6 +121,7 @@ async def get_project(queue_id: str) -> str:
 
     Returns all enrichment fields: tax credits, energy community eligibility,
     low-income eligibility, developer info, investability score, construction stage,
+    milestone dates (IA date, study phase, backfeed date, test energy date),
     interconnection costs, FERC financials, and more.
 
     Args:
@@ -272,6 +288,8 @@ async def get_investable_projects(
     state: str | None = None,
     region: str | None = None,
     type: str | None = None,
+    construction_stage: str | None = None,
+    min_confidence: float | None = None,
     page: int = 1,
     per_page: int = 20,
 ) -> str:
@@ -280,25 +298,33 @@ async def get_investable_projects(
     Projects are scored on: ITC eligibility, developer independence (needs capital),
     construction stage progression, energy community bonus, and project viability.
 
+    Results include milestone data: study phase, IA status, IA date, and
+    construction stage with confidence scores.
+
     Investability grades: A (70+), B (50-69), C (30-49), D (<30)
 
     Use this to answer questions like:
     - "Show me the highest-scored investable projects"
     - "Find investable solar deals in Texas"
     - "What Grade A projects are available in PJM?"
+    - "Find late-stage investable projects with high confidence"
 
     Args:
         min_score: Minimum investability score (0-100)
         state: US state abbreviation
         region: ISO/RTO region
         type: Technology type
+        construction_stage: Filter by stage (early, mid, late, construction)
+        min_confidence: Minimum construction stage confidence (0.0-1.0)
         page: Page number
         per_page: Results per page
     """
     client = _get_client()
     data = await client.get("/investable", {
         "min_score": min_score, "state": state, "region": region,
-        "type": type, "page": page, "per_page": per_page,
+        "type": type, "construction_stage": construction_stage,
+        "min_confidence": min_confidence,
+        "page": page, "per_page": per_page,
     })
     return _fmt(data)
 
@@ -326,6 +352,26 @@ async def get_queue_stats() -> str:
     """
     client = _get_client()
     data = await client.get("/stats")
+    return _fmt(data)
+
+
+@mcp.tool()
+async def get_milestone_summary() -> str:
+    """Get aggregate milestone and construction stage statistics.
+
+    Returns: total projects with milestone data, construction stage distribution
+    (early/mid/late/construction/operational/withdrawn), average confidence per stage,
+    study phase distribution (Feasibility, SIS, Facilities, GIA, IA Executed),
+    IA status distribution, and fill rates for each milestone field.
+
+    Use this to answer questions like:
+    - "How many projects have reached IA Executed status?"
+    - "What's the distribution of construction stages?"
+    - "How complete is the milestone data coverage?"
+    - "What percentage of projects have study phase data?"
+    """
+    client = _get_client()
+    data = await client.get("/projects/milestones/summary")
     return _fmt(data)
 
 
@@ -514,6 +560,69 @@ async def get_dg_stats() -> str:
     """
     client = _get_client()
     data = await client.get("/dg/stats")
+    return _fmt(data)
+
+
+@mcp.tool()
+async def get_investable_dg_projects(
+    state: str | None = None,
+    dg_stage: str | None = None,
+    min_score: float | None = None,
+    min_capacity_kw: float | None = None,
+    max_capacity_kw: float | None = None,
+    source: str | None = None,
+    page: int = 1,
+    per_page: int = 50,
+) -> str:
+    """Find pre-screened investable distributed generation projects.
+
+    Searches 55,000+ DG projects scored for small ITC investor fit.
+    Scoring considers: ITC eligibility, project size (sub-1MW sweet spot),
+    development stage, stall risk, state program quality, recency, and
+    data completeness.
+
+    Investable DG projects are pre-operational (approved, construction,
+    or inspection stage) and not stalled.
+
+    Use this to answer questions like:
+    - "Find investable DG projects in New Jersey"
+    - "Show me construction-stage solar in New York"
+    - "What sub-500kW projects are investable in Illinois?"
+
+    Args:
+        state: US state abbreviation (e.g. "NJ", "NY", "IL")
+        dg_stage: Development stage (approved, construction, inspection)
+        min_score: Minimum investability score (0-100)
+        min_capacity_kw: Minimum capacity in kW
+        max_capacity_kw: Maximum capacity in kW
+        source: Data source filter (e.g. "nj_dg", "ny_dps_sir", "il_shines")
+        page: Page number (default 1)
+        per_page: Results per page (default 50, max 500)
+    """
+    client = _get_client()
+    data = await client.get("/dg/investable", {
+        "state": state, "dg_stage": dg_stage, "min_score": min_score,
+        "min_capacity_kw": min_capacity_kw, "max_capacity_kw": max_capacity_kw,
+        "source": source, "page": page, "per_page": per_page,
+    })
+    return _fmt(data)
+
+
+@mcp.tool()
+async def get_dg_investable_summary() -> str:
+    """Get aggregate statistics for investable DG projects.
+
+    Returns: total investable count, breakdown by state, development stage,
+    data source, and score distribution. Also includes total scored projects
+    and investable rate.
+
+    Use this to answer questions like:
+    - "How many DG projects are investable?"
+    - "Which states have the most investable DG projects?"
+    - "What's the stage breakdown for investable DG?"
+    """
+    client = _get_client()
+    data = await client.get("/dg/investable/summary")
     return _fmt(data)
 
 

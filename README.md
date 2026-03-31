@@ -2,7 +2,7 @@
 
 MCP (Model Context Protocol) server that gives AI agents access to the Prospector Labs Energy Data API — 47,000+ interconnection queue projects, 5.4M distributed generation installations, 6,593 developer profiles, tax credit calculations, and ITC deal sourcing.
 
-## Tools Available (31 tools)
+## Tools Available (34 tools)
 
 ### Projects & Search
 | Tool | Description |
@@ -61,6 +61,14 @@ MCP (Model Context Protocol) server that gives AI agents access to the Prospecto
 |------|-------------|
 | `search_dg_projects` | Search 5.4M distributed generation installations |
 | `get_dg_stats` | DG aggregate statistics |
+| `get_investable_dg_projects` | Pre-screened investable DG projects (55K+ scored for small ITC investors) |
+| `get_dg_investable_summary` | Aggregate investable DG statistics by state, stage, source |
+
+## What's New in v0.3.1
+
+- **DG Investability tools** — `get_investable_dg_projects` and `get_dg_investable_summary` for searching 55K+ pre-screened distributed generation projects scored for small ITC investor fit
+- **34 total tools** (was 32 in v0.3.0)
+- Milestone tools from v0.3.0: `get_milestone_summary`, construction stage/study phase/IA status filters on `search_projects` and `get_investable_projects`
 
 ## Setup
 
