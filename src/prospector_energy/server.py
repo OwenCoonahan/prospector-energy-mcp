@@ -3,13 +3,18 @@
 Exposes the Prospector Labs Energy Data API as 34 MCP tools
 that Claude, GPT, and other AI agents can discover and call natively.
 
+Supports per-tool-call payments via MPP (Machine Payments Protocol).
+Set MPP_RECIPIENT_ADDRESS to enable agent payments in USDC.
+
 Usage:
     python -m prospector_energy          # stdio transport (default)
     python -m prospector_energy --sse    # SSE transport for web clients
 
 Environment:
-    PROSPECTOR_API_URL  — API base URL (default: Railway production)
-    PROSPECTOR_API_KEY  — Optional API key for authenticated access
+    PROSPECTOR_API_URL      — API base URL (default: Railway production)
+    PROSPECTOR_API_KEY      — Optional API key for authenticated access
+    MPP_RECIPIENT_ADDRESS   — Wallet address to receive payments (enables MPP)
+    MPP_SECRET_KEY          — HMAC secret for payment challenges
 """
 
 import json
@@ -19,6 +24,13 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from .client import ProspectorClient
+from .payments import paid_tool, get_payment_capabilities, is_payments_enabled
+
+# Build capabilities dict — include payment capabilities if MPP is configured
+_extra_caps = {}
+_pay_caps = get_payment_capabilities()
+if _pay_caps:
+    _extra_caps["experimental"] = _pay_caps
 
 mcp = FastMCP(
     "prospector-energy",
@@ -31,7 +43,14 @@ mcp = FastMCP(
         "market data, and grid infrastructure. Use these tools to answer questions "
         "about US energy projects, renewable energy development, tax credits, "
         "project milestones, and energy market data."
+        + (
+            " This server supports per-tool-call payments via MPP. "
+            "Summary/stats tools are free. Data queries cost $0.01-$0.10 per call in USDC."
+            if is_payments_enabled()
+            else ""
+        )
     ),
+    **({"capabilities": _extra_caps} if _extra_caps else {}),
 )
 
 _client: ProspectorClient | None = None
@@ -57,6 +76,7 @@ def _fmt(data: Any) -> str:
 
 
 @mcp.tool()
+@paid_tool("search_projects")
 async def search_projects(
     state: str | None = None,
     region: str | None = None,
@@ -116,6 +136,7 @@ async def search_projects(
 
 
 @mcp.tool()
+@paid_tool("get_project")
 async def get_project(queue_id: str) -> str:
     """Get full details for a specific interconnection queue project.
 
@@ -133,6 +154,7 @@ async def get_project(queue_id: str) -> str:
 
 
 @mcp.tool()
+@paid_tool("calculate_tax_credits")
 async def calculate_tax_credits(
     technology: str,
     capacity_mw: float,
@@ -168,6 +190,7 @@ async def calculate_tax_credits(
 
 
 @mcp.tool()
+@paid_tool("find_itc_deals")
 async def find_itc_deals(
     state: str | None = None,
     region: str | None = None,
@@ -207,6 +230,7 @@ async def find_itc_deals(
 
 
 @mcp.tool()
+@paid_tool("get_itc_deal")
 async def get_itc_deal(queue_id: str) -> str:
     """Get detailed ITC deal profile for a specific project.
 
@@ -222,6 +246,7 @@ async def get_itc_deal(queue_id: str) -> str:
 
 
 @mcp.tool()
+@paid_tool("search_developers")
 async def search_developers(q: str) -> str:
     """Search energy project developers by name.
 
@@ -240,6 +265,7 @@ async def search_developers(q: str) -> str:
 
 
 @mcp.tool()
+@paid_tool("get_developer")
 async def get_developer(developer_id: int) -> str:
     """Get full developer profile with track record.
 
@@ -256,6 +282,7 @@ async def get_developer(developer_id: int) -> str:
 
 
 @mcp.tool()
+@paid_tool("get_developer_projects")
 async def get_developer_projects(
     developer_id: int,
     page: int = 1,
@@ -283,6 +310,7 @@ async def get_developer_projects(
 
 
 @mcp.tool()
+@paid_tool("get_investable_projects")
 async def get_investable_projects(
     min_score: int | None = None,
     state: str | None = None,
@@ -376,6 +404,7 @@ async def get_milestone_summary() -> str:
 
 
 @mcp.tool()
+@paid_tool("search_dg_projects")
 async def search_dg_projects(
     state: str | None = None,
     type: str | None = None,
@@ -417,6 +446,7 @@ async def search_dg_projects(
 
 
 @mcp.tool()
+@paid_tool("get_lmp_daily")
 async def get_lmp_daily(
     iso: str | None = None,
     zone: str | None = None,
@@ -437,6 +467,7 @@ async def get_lmp_daily(
 
 
 @mcp.tool()
+@paid_tool("get_capacity_prices")
 async def get_capacity_prices(
     iso: str | None = None,
     year: int | None = None,
@@ -453,6 +484,7 @@ async def get_capacity_prices(
 
 
 @mcp.tool()
+@paid_tool("get_generators")
 async def get_generators(
     state: str | None = None,
     fuel_type: str | None = None,
@@ -478,6 +510,7 @@ async def get_generators(
 
 
 @mcp.tool()
+@paid_tool("get_technology_costs")
 async def get_technology_costs(
     technology: str | None = None,
     year: int | None = None,
@@ -499,6 +532,7 @@ async def get_technology_costs(
 
 
 @mcp.tool()
+@paid_tool("check_domestic_content")
 async def check_domestic_content(queue_id: str) -> str:
     """Check domestic content eligibility for a project's ITC bonus (+10%).
 
@@ -514,6 +548,7 @@ async def check_domestic_content(queue_id: str) -> str:
 
 
 @mcp.tool()
+@paid_tool("get_grid_turbines")
 async def get_grid_turbines(
     state: str | None = None,
     manufacturer: str | None = None,
@@ -564,6 +599,7 @@ async def get_dg_stats() -> str:
 
 
 @mcp.tool()
+@paid_tool("get_investable_dg_projects")
 async def get_investable_dg_projects(
     state: str | None = None,
     dg_stage: str | None = None,
@@ -645,6 +681,7 @@ async def get_itc_summary() -> str:
 
 
 @mcp.tool()
+@paid_tool("get_deal_sheet")
 async def get_deal_sheet(queue_id: str) -> str:
     """Get a formatted 1-page deal sheet for an energy project.
 
@@ -663,6 +700,7 @@ async def get_deal_sheet(queue_id: str) -> str:
 
 
 @mcp.tool()
+@paid_tool("get_project_score")
 async def get_project_score(queue_id: str) -> str:
     """Get the investability score breakdown for a specific project.
 
@@ -678,6 +716,7 @@ async def get_project_score(queue_id: str) -> str:
 
 
 @mcp.tool()
+@paid_tool("get_lmp_monthly")
 async def get_lmp_monthly(
     iso: str | None = None,
     zone: str | None = None,
@@ -712,6 +751,7 @@ async def get_lmp_zones(iso: str | None = None) -> str:
 
 
 @mcp.tool()
+@paid_tool("get_fuel_prices")
 async def get_fuel_prices(
     fuel: str | None = None,
     state: str | None = None,
@@ -730,6 +770,7 @@ async def get_fuel_prices(
 
 
 @mcp.tool()
+@paid_tool("get_rto_generation")
 async def get_rto_generation(
     region: str | None = None,
 ) -> str:
@@ -746,6 +787,7 @@ async def get_rto_generation(
 
 
 @mcp.tool()
+@paid_tool("get_grid_transmission")
 async def get_grid_transmission(
     state: str | None = None,
     owner: str | None = None,
@@ -773,6 +815,7 @@ async def get_grid_transmission(
 
 
 @mcp.tool()
+@paid_tool("get_grid_substations")
 async def get_grid_substations(
     state: str | None = None,
     owner: str | None = None,
@@ -798,6 +841,7 @@ async def get_grid_substations(
 
 
 @mcp.tool()
+@paid_tool("export_projects")
 async def export_projects(
     state: str | None = None,
     region: str | None = None,
@@ -822,6 +866,24 @@ async def export_projects(
         "status": status, "format": format,
     })
     return _fmt(data)
+
+
+@mcp.tool()
+async def get_pricing() -> str:
+    """Get pricing information for all tools.
+
+    Returns the cost per tool call, organized by tier:
+    - Free: Summary and stats tools (no payment required)
+    - Standard ($0.01/call): Search and list tools
+    - Premium ($0.05/call): Detail lookups, tax credits, investable projects
+    - Pro ($0.10/call): Deal sheets, bulk exports
+
+    Payments are in USDC via the Machine Payments Protocol (MPP).
+    If payments are not enabled on this server, all tools are free
+    (subject to API key rate limits).
+    """
+    from .payments import get_pricing_info
+    return _fmt(get_pricing_info())
 
 
 def main():

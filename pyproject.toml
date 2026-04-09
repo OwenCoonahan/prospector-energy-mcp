@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prospector-energy-mcp"
-version = "0.3.1"
-description = "MCP server for Prospector Labs Energy Data API — interconnection queues, tax credits, developer intelligence, and deal sourcing"
+version = "0.4.0"
+description = "MCP server for Prospector Labs Energy Data API — interconnection queues, tax credits, developer intelligence, and deal sourcing. Supports agent payments via MPP."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
@@ -13,6 +13,11 @@ authors = [{ name = "Prospector Labs" }]
 dependencies = [
     "mcp>=1.0.0",
     "httpx>=0.27.0",
+]
+
+[project.optional-dependencies]
+payments = [
+    "pympp[tempo,mcp]>=0.6.0",
 ]
 
 [tool.hatch.build.targets.wheel]
