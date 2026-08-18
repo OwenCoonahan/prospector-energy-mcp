@@ -194,7 +194,20 @@ def is_payments_enabled() -> bool:
 
 def get_pricing_info() -> dict[str, Any]:
     """Get pricing info for all tools (useful for documentation)."""
-    info = {"enabled": is_payments_enabled(), "currency": "USDC (pathUSD)", "tiers": {}}
+    enabled = is_payments_enabled()
+    info = {
+        "enabled": enabled,
+        "currency": "USDC (pathUSD)",
+        "plans_url": "https://api.prospectorlabs.io/plans",
+        "note": (
+            "Per-call MPP amounts below are ACTIVE on this instance."
+            if enabled
+            else "This instance charges nothing per call — MPP is not configured, so the "
+            "amounts below are inert. Access is governed by your API key's plan; "
+            "see plans_url."
+        ),
+        "tiers": {},
+    }
     for tier_name in ["free", "standard", "premium", "pro"]:
         tier_data = PRICING[tier_name]
         if tier_name == "free":

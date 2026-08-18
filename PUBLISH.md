@@ -6,7 +6,7 @@
 
 Go to https://github.com/new and create:
 - **Name:** `prospector-energy-mcp`
-- **Description:** MCP server for US energy infrastructure data — 47K interconnection projects, 5.4M DG installations, tax credits, developer intelligence
+- **Description:** MCP server for US energy infrastructure data — interconnection queue projects, distributed generation, tax credits, developer intelligence
 - **Visibility:** Public
 - **Don't** initialize with README (we already have one)
 
@@ -60,13 +60,18 @@ Go to https://pypi.org/manage/account/token/ → Create token → Scope: entire 
 ```bash
 cd "/Users/owencoonahan/Documents/Grand Library/End Suffering/prospector-platform/mcp-server"
 
-# Build (already done, packages in dist/)
+# Build the CURRENT version
 python3.12 -m build
 
-# Upload
-python3.12 -m twine upload dist/*
+# Upload ONLY this release's artifacts.
+# dist/ retains artifacts from every previous build, and PyPI rejects the whole
+# upload if any file in the glob is a version that already exists. Never `dist/*`.
+python3.12 -m twine upload dist/*0.4.1*
 # Enter: __token__ as username, paste your API token as password
 ```
+
+A version on PyPI is immutable — it cannot be re-uploaded or edited, only yanked.
+Confirm the README and tool list are correct BEFORE this step, not after.
 
 ### Step 4: Users can now install via
 
@@ -87,12 +92,17 @@ Go to https://mcp.so and submit:
 | Field | Value |
 |-------|-------|
 | **Name** | prospector-energy |
-| **Description** | Access US energy infrastructure data — 47,000 interconnection queue projects across 9 ISOs, 5.4M distributed generation installations, ITC/PTC tax credit calculations with all IRA bonuses, 6,593 developer profiles with track records, and ITC deal sourcing for investors. |
+| **Description** | Access US energy infrastructure data — interconnection queue projects across the 7 ISOs/RTOs (PJM, MISO, SPP, CAISO, ERCOT, NYISO, ISO-NE), distributed generation installations, ITC/PTC tax credit calculations with all IRA bonuses, developer profiles with track records, and ITC deal sourcing for investors. |
 | **Install** | `pip install prospector-energy-mcp` (or `pip install git+https://github.com/OwenCoonahan/prospector-energy-mcp.git`) |
 | **GitHub** | https://github.com/OwenCoonahan/prospector-energy-mcp |
 | **Category** | Data / Finance / Energy |
 | **Author** | Prospector Labs |
-| **Tools** | 20 tools: search_projects, get_project, calculate_tax_credits, find_itc_deals, get_itc_deal, search_developers, get_developer, get_developer_projects, get_investable_projects, get_investable_summary, get_market_stats, search_dg_projects, get_lmp_daily, get_capacity_prices, get_generators, get_technology_costs, check_domestic_content, get_grid_turbines, get_developer_stats, get_dg_stats |
+| **Tools** | 32 tools: search_projects, get_project, get_project_score, get_queue_stats, get_milestone_summary, export_projects, find_itc_deals, get_itc_deal, get_itc_summary, get_investable_projects, get_investable_summary, get_deal_sheet, calculate_tax_credits, check_domestic_content, search_developers, get_developer, get_developer_projects, get_developer_stats, get_lmp_monthly, get_lmp_zones, get_capacity_prices, get_fuel_prices, get_technology_costs, get_grid_turbines, get_grid_transmission, get_grid_substations, get_generators, search_dg_projects, get_dg_stats, get_investable_dg_projects, get_dg_investable_summary, get_pricing |
+
+**Do not paste a record count into a registry listing.** Counts change daily and a
+registry entry is not something anyone comes back to update. The project and DG
+totals previously published here drifted far from the served values before anyone
+noticed — one of them was nearly double the real number.
 
 ### Smithery.ai
 

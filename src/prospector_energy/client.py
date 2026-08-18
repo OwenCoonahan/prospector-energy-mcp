@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 
-DEFAULT_API_URL = "https://prospector-platform-production.up.railway.app"
+DEFAULT_API_URL = "https://api.prospectorlabs.io"
 
 
 class ProspectorClient:

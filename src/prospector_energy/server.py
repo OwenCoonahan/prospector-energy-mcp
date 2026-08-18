@@ -1,18 +1,18 @@
 """Prospector Energy MCP Server.
 
-Exposes the Prospector Labs Energy Data API as 34 MCP tools
+Exposes the Prospector Labs Energy Data API as 32 MCP tools
 that Claude, GPT, and other AI agents can discover and call natively.
 
 Supports per-tool-call payments via MPP (Machine Payments Protocol).
-Set MPP_RECIPIENT_ADDRESS to enable agent payments in USDC.
+Set MPP_RECIPIENT_ADDRESS to enable agent payments in USDC. Off by default.
 
 Usage:
     python -m prospector_energy          # stdio transport (default)
     python -m prospector_energy --sse    # SSE transport for web clients
 
 Environment:
-    PROSPECTOR_API_URL      — API base URL (default: Railway production)
-    PROSPECTOR_API_KEY      — Optional API key for authenticated access
+    PROSPECTOR_API_URL      — API base URL (default: https://api.prospectorlabs.io)
+    PROSPECTOR_API_KEY      — API key. Required for export_projects, optional elsewhere
     MPP_RECIPIENT_ADDRESS   — Wallet address to receive payments (enables MPP)
     MPP_SECRET_KEY          — HMAC secret for payment challenges
 """
@@ -36,16 +36,18 @@ mcp = FastMCP(
     "prospector-energy",
     instructions=(
         "Energy infrastructure data for the US power grid. "
-        "47,000+ interconnection queue projects with milestone tracking "
+        "Interconnection queue projects with milestone tracking "
         "(construction stage, study phase, IA status, key dates), "
-        "5.4M distributed generation installations (55K+ scored for investability), "
-        "6,593 developer profiles, tax credit calculations, ITC deal sourcing, "
+        "distributed generation installations scored for investability, "
+        "developer profiles, tax credit calculations, ITC deal sourcing, "
         "market data, and grid infrastructure. Use these tools to answer questions "
         "about US energy projects, renewable energy development, tax credits, "
-        "project milestones, and energy market data."
+        "project milestones, and energy market data. "
+        "Record counts change daily: call get_queue_stats, get_dg_stats or "
+        "get_developer_stats for current coverage rather than assuming a total."
         + (
-            " This server supports per-tool-call payments via MPP. "
-            "Summary/stats tools are free. Data queries cost $0.01-$0.10 per call in USDC."
+            " This instance has per-tool-call payments enabled via MPP; "
+            "summary and stats tools remain free. Call get_pricing for amounts."
             if is_payments_enabled()
             else ""
         )
@@ -445,7 +447,8 @@ async def search_dg_projects(
 # =============================================================================
 
 
-@mcp.tool()
+# DELISTED (M1): returns EMPTY — LMP data is dead. A listed-but-empty tool is worse than an absent one.
+# Re-add the @mcp.tool() line when Track D restores the LMP pipeline.
 @paid_tool("get_lmp_daily")
 async def get_lmp_daily(
     iso: str | None = None,
@@ -695,7 +698,9 @@ async def get_deal_sheet(queue_id: str) -> str:
         queue_id: The project's queue ID
     """
     client = _get_client()
-    data = await client.get(f"/deals/{queue_id}/sheet")
+    # format=json so the API returns the deal sheet inside JSON ({queue_id, html, ...}) — the client
+    # parses JSON, so requesting raw HTML here would raise JSONDecodeError.
+    data = await client.get(f"/deals/{queue_id}/sheet", params={"format": "json"})
     return _fmt(data)
 
 
@@ -769,7 +774,8 @@ async def get_fuel_prices(
     return _fmt(data)
 
 
-@mcp.tool()
+# DELISTED (M1): returns EMPTY — EIA-930 RTO generation data is dead. Re-add the @mcp.tool() line when
+# Track D restores the EIA-930 pipeline.
 @paid_tool("get_rto_generation")
 async def get_rto_generation(
     region: str | None = None,
@@ -870,23 +876,57 @@ async def export_projects(
 
 @mcp.tool()
 async def get_pricing() -> str:
-    """Get pricing information for all tools.
+    """Get the plan tiers, and per-call amounts if this instance charges.
 
-    Returns the cost per tool call, organized by tier:
-    - Free: Summary and stats tools (no payment required)
-    - Standard ($0.01/call): Search and list tools
-    - Premium ($0.05/call): Detail lookups, tax credits, investable projects
-    - Pro ($0.10/call): Deal sheets, bulk exports
+    Access to the Prospector API is governed by your API key's PLAN, published
+    at https://api.prospectorlabs.io/plans — Free, Access, Enterprise. Free
+    covers every tool here except bulk export. That endpoint is authoritative;
+    prefer it over this tool for what a plan grants.
 
-    Payments are in USDC via the Machine Payments Protocol (MPP).
-    If payments are not enabled on this server, all tools are free
-    (subject to API key rate limits).
+    Separately, an operator running their OWN instance may enable per-tool-call
+    payments in USDC via the Machine Payments Protocol (MPP). This is off by
+    default. The returned "enabled" field says whether THIS instance charges;
+    when it is false, no tool here costs anything per call and the tier amounts
+    below are inert configuration.
     """
     from .payments import get_pricing_info
     return _fmt(get_pricing_info())
 
 
+USAGE = """prospector-energy-mcp — Prospector Labs Energy Data as MCP tools.
+
+Usage:
+  prospector-energy-mcp            Run with stdio transport (default)
+  prospector-energy-mcp --sse      Run with SSE transport for web clients
+  prospector-energy-mcp --version  Print version and exit
+  prospector-energy-mcp --help     Print this message and exit
+
+Environment:
+  PROSPECTOR_API_URL      API base URL (default: https://api.prospectorlabs.io)
+  PROSPECTOR_API_KEY      API key. Required for export_projects, optional elsewhere.
+                          Get one at https://api.prospectorlabs.io/start
+  MPP_RECIPIENT_ADDRESS   Wallet address to receive MPP payments (self-hosting only)
+
+Plans are published at https://api.prospectorlabs.io/plans.
+"""
+
+
 def main():
+    # Handle --help/--version before starting a transport. Without this, `--help`
+    # fell through and started the stdio server, which exits 0 only because it
+    # reads EOF immediately — a green that proved nothing.
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(USAGE)
+        return
+    if "--version" in sys.argv:
+        from importlib.metadata import PackageNotFoundError, version
+
+        try:
+            print(version("prospector-energy-mcp"))
+        except PackageNotFoundError:
+            print("unknown (not installed as a distribution)")
+        return
+
     transport = "sse" if "--sse" in sys.argv else "stdio"
     mcp.run(transport=transport)
 
